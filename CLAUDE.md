@@ -10,6 +10,10 @@ Always respond and explain in Korean (한국어) in this repository, regardless 
 
 Scaffolding exists: `pyproject.toml` (uv-managed), `Dockerfile`, `docker-compose.yml`, Alembic migrations (`alembic/versions/0001`~`0010`, full `database.md` schema incl. ETL staging tables), and a minimal `app/` tree (`core/config.py`, `core/database.py`, `core/redis.py`, `main.py` with `/health`, and a fully implemented `app/etl/` pipeline for the three public-data sources — see `develop.md` ETL 섹션). Domain layers (`api/`, `schemas/`, `services/`, `repositories/`, business `models/`) have **not** been built yet — that's the next phase, deferred until after the ETL/공공데이터 infra was in place per project sequencing.
 
+## Goal
+
+The project's target features and scope are documented in `goal.md` (verbatim from the original feature spec, broken down per FUNC with sub-goals). **Before starting any new feature work, check `goal.md`** to confirm what's in scope and which sub-goal it maps to — don't build functionality beyond what's listed there without confirming with the user first.
+
 ## Intended stack
 
 - **Framework**: FastAPI

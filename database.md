@@ -17,9 +17,12 @@ Ding-Dong11-BE 데이터베이스 구조 문서. **코드를 작성할 때마다
 | Refresh Token | `refresh_token:{user_id}` | 토큰 문자열(또는 jti) | 리프레시 만료(예: 14일) |
 | 이메일 인증코드 | `email_verify:{email}` | 6자리 코드(대문자+숫자) | 600초 (10분) |
 | 인증코드 재발급 쿨다운 | `email_verify:cooldown:{email}` | 발급 마커 | 180초 (3분) |
+| 이메일 인증 완료 마커 | `email_verified:{email}` | 완료 마커 | 인증코드 잔여 TTL 승계(최대 600초) — 회원가입 완료 시 삭제 |
+| Access Token 블랙리스트 | `access_blacklist:{jti}` | 무효화 마커 | Access Token 잔여 만료 시간 |
 
 - **챗봇(FUNC-005)**: 대화 세션/메시지는 DB에 영구 저장하지 않는다. 필요 시 Redis 임시 버퍼로만 처리.
 - Refresh Token은 회전(rotation)/블랙리스트 전략 시 `refresh_token:{user_id}` 대신 `refresh:jti:{jti}` 형태로 확장 가능.
+- **로그아웃(FUNC-001-03)**: `refresh_token:{user_id}` 삭제 + 현재 Access Token의 `jti`를 `access_blacklist:{jti}`에 등록(TTL=잔여 만료시간)하여 로그아웃 이후 만료 전 Access Token도 즉시 무효화한다.
 
 ---
 
@@ -140,6 +143,7 @@ erDiagram
         string adong_code FK
         decimal longitude "x(지오코딩)"
         decimal latitude "y(지오코딩)"
+        string source_seq "원천 일련번호(부분UK, nullable)"
     }
     DISPOSITION_TYPES {
         string type_code PK
@@ -271,8 +275,9 @@ erDiagram
 
 ### 11. ADMIN_DISPOSITIONS — 행정처분 (식약처) (FUNC-002)
 - **기능**: 처분 이력 매장 지도 마커, 마커 클릭 상세(업체명/처분내용/처분일자/근거법령/처분기관), 업종·처분종류 필터.
-- **인덱스**: PK / FK(store_id nullable, type_code, small_code, adong_code) / 공간 인덱스 / (disposition_date) 정렬 · (type_code) 필터 / **자연키 유니크 인덱스** `(business_name, disposition_date, type_code, COALESCE(authority,''))` — ETL 재적재 시 멱등 upsert 용(식약처 원천에 안정적 대리키가 없음).
-- **제약**: 식약처 원천이라 store_id는 매칭 성공 시에만 채움(nullable). 좌표는 주소 지오코딩으로 보정.
+- **인덱스**: PK / FK(store_id nullable, type_code, small_code, adong_code) / 공간 인덱스 / (disposition_date) 정렬 · (type_code) 필터 / **`source_seq` 부분 유니크 인덱스**(`WHERE source_seq IS NOT NULL`) — 식약처 Open API 실제 응답의 `DSPSDTLS_SEQ`(원천 고유 일련번호)를 멱등 upsert 키로 사용(0011).
+- **제약**: 식약처 원천이라 store_id는 매칭 성공 시에만 채움(nullable). 좌표는 주소 지오코딩으로 보정. `source_seq`는 API 소스가 아닌 경우 NULL 허용.
+- **비고**: 애초에 `(business_name, disposition_date, type_code, authority)` 복합 자연키로 멱등 upsert 를 시도했으나(0010), 실제 데이터에서 이 조합이 동일한데 `source_seq` 는 다른(=서로 별개인) 처분 건이 존재함이 확인되어 자연키 제약은 제거했다(0012). `source_seq` 만이 신뢰 가능한 멱등키다.
 
 ### 12. DISPOSITION_TYPES — 처분 유형 룩업
 - **기능**: 처분유형코드→명칭(3NF 분리). FUNC-002-04 처분종류 필터.
@@ -371,9 +376,11 @@ CREATE INDEX idx_sale_products_category ON sale_products(small_code);
 -- 보유 쿠폰
 CREATE INDEX idx_user_coupons_user      ON user_coupons(user_id, status);
 
--- 행정처분 자연키(ETL 멱등 upsert): 식약처 원천에 안정적 대리키가 없어 조합키로 대체
-CREATE UNIQUE INDEX uq_admin_dispositions_natural
-  ON admin_dispositions(business_name, disposition_date, type_code, COALESCE(authority, ''));
+-- 행정처분 원천 일련번호(ETL 멱등 upsert 키): data.go.kr 실제 응답의 DSPSDTLS_SEQ.
+-- (business_name,disposition_date,type_code,authority) 복합 자연키는 실제 데이터에서
+-- 반증되어(동일 조합, 다른 source_seq 인 별개 처분 건 존재) 폐기했다(0010 -> 0012).
+CREATE UNIQUE INDEX uq_admin_dispositions_source_seq
+  ON admin_dispositions(source_seq) WHERE source_seq IS NOT NULL;
 
 -- 관심 중복 방지
 CREATE UNIQUE INDEX uq_sale_subs        ON sale_subscriptions(user_id, sale_store_id);
