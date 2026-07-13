@@ -1,0 +1,17 @@
+# 환경변수 (실비밀 — 절대 커밋 금지)
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# uv
+.python-version
+
+# IDE
+.idea/
+
+# 공공데이터 CSV 원본(용량 大, ETL_STORES_CSV_PATH 대상)
+/data/

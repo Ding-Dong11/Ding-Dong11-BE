@@ -1,0 +1,88 @@
+# Ding-Dong11-BE 로컬/개발용 Docker Compose
+# - 기본 `docker compose up -d` 는 db(PostGIS) + redis 만 기동한다(마이그레이션/개발용 인프라).
+# - app / migrate 서비스는 Dockerfile 이 만들어진 뒤 `--profile app` 으로 활성화한다.
+#   예) docker compose --profile app up --build
+#       docker compose --profile app run --rm migrate   # alembic upgrade head
+name: ding-dong11
+
+services:
+  db:
+    # PostGIS 확장이 포함된 PostgreSQL (database.md: geometry(Point,4326) + GiST)
+    image: postgis/postgis:16-3.4
+    container_name: dingdong-postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dingdong}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dingdong}
+      POSTGRES_DB: ${POSTGRES_DB:-dingdong}
+      # 한국어 정렬/로케일 (tsvector 'simple' 사용이라 필수는 아니나 명시)
+      LANG: C.UTF-8
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dingdong} -d ${POSTGRES_DB:-dingdong}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  redis:
+    # refresh token / 이메일 인증코드 / 지오코딩 캐시 등 휘발성 데이터 (database.md Redis 섹션)
+    image: redis:7-alpine
+    container_name: dingdong-redis
+    # 로컬 개발은 비밀번호 없이 기동. 운영에서는 --requirepass "$REDIS_PASSWORD" 로 활성화 권장.
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  # ── 아래 두 서비스는 Dockerfile 스캐폴딩 후 `--profile app` 로 사용 ──
+  app:
+    profiles: ["app"]
+    build: .
+    container_name: dingdong-api
+    env_file: .env
+    environment:
+      # 컨테이너 네트워크 내부 호스트명으로 override.
+      # DATABASE_URL/REDIS_URL 이 로컬 개발용(.env, localhost 등)으로 설정되어 있으면
+      # get_url()/redis_connection_url() 에서 무조건 우선되어 위 오버라이드를 무력화하므로
+      # 컨테이너 실행 시에는 반드시 비워 POSTGRES_HOST/REDIS_HOST 조합이 사용되게 한다.
+      POSTGRES_HOST: db
+      REDIS_HOST: redis
+      DATABASE_URL: ""
+      REDIS_URL: ""
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    ports:
+      - "${APP_PORT:-8000}:8000"
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    restart: unless-stopped
+
+  migrate:
+    # 일회성 마이그레이션 실행기: `docker compose --profile app run --rm migrate`
+    profiles: ["app"]
+    build: .
+    env_file: .env
+    environment:
+      POSTGRES_HOST: db
+      DATABASE_URL: ""
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["alembic", "upgrade", "head"]
+    restart: "no"
+
+volumes:
+  postgres_data:
+  redis_data:
