@@ -75,6 +75,12 @@ class UserWithdrawnError(AppError):
     message = "탈퇴한 계정입니다."
 
 
+class DispositionNotFoundError(AppError):
+    status_code = 404
+    code = "DISPOSITION_NOT_FOUND"
+    message = "행정처분 정보를 찾을 수 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
