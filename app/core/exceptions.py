@@ -81,6 +81,30 @@ class DispositionNotFoundError(AppError):
     message = "행정처분 정보를 찾을 수 없습니다."
 
 
+class StoreNotFoundError(AppError):
+    status_code = 404
+    code = "STORE_NOT_FOUND"
+    message = "상가 정보를 찾을 수 없습니다."
+
+
+class QrNotFoundError(AppError):
+    status_code = 404
+    code = "QR_NOT_FOUND"
+    message = "유효하지 않은 QR 코드입니다."
+
+
+class AlreadyVerifiedTodayError(AppError):
+    status_code = 409
+    code = "ALREADY_VERIFIED_TODAY"
+    message = "오늘 이미 인증한 상가입니다."
+
+
+class StoreQrNotFoundError(AppError):
+    status_code = 404
+    code = "STORE_QR_NOT_FOUND"
+    message = "해당 상가에 발급된 QR 코드가 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
