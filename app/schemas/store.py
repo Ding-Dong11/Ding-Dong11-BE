@@ -2,22 +2,43 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from decimal import Decimal
+from typing import Annotated, Literal, Union
 
-from pydantic import BaseModel, computed_field
+from pydantic import BaseModel, Field, computed_field
 
 
-# ── 마커 ────────────────────────────────────────────────────────────────────
+# ── 마커 (클러스터 / 개별 상가 유니온) ──────────────────────────────────────
+
+class ClusterMarker(BaseModel):
+    """zoom < 14 구간에서 서버가 묶어 반환하는 클러스터 핀."""
+
+    type: Literal["cluster"] = "cluster"
+    longitude: float
+    latitude: float
+    count: int              # 클러스터 내 상가 수
+    has_active_qr: bool     # 클러스터 내 1개 이상 QR 상가 존재
+    has_disposition: bool   # 클러스터 내 행정처분 상가 존재
+    has_sale: bool          # 클러스터 내 할인 상품 상가 존재
+
 
 class StoreMarker(BaseModel):
-    """GET /stores/markers — 지도 핀 한 건."""
+    """GET /stores/markers — 개별 상가 핀 한 건 (zoom >= 14 또는 클러스터 크기 1)."""
 
+    type: Literal["store"] = "store"
     store_id: int
     store_name: str
-    longitude: Decimal
-    latitude: Decimal
+    longitude: float
+    latitude: float
     has_active_qr: bool     # [포인트 지급] 뱃지
     has_disposition: bool   # 행정처분 이력 → 마커 색상 구분
     has_sale: bool          # 활성 할인 상품 존재
+
+
+# FastAPI response_model 에 사용할 discriminated union
+MarkerItem = Annotated[
+    Union[ClusterMarker, StoreMarker],
+    Field(discriminator="type"),
+]
 
 
 # ── 상세 서브 스키마 ─────────────────────────────────────────────────────────

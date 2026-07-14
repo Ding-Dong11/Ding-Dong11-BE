@@ -10,11 +10,12 @@
 """
 from __future__ import annotations
 
-import os
 from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+from app.core.config import get_settings
 
 config = context.config
 
@@ -25,15 +26,7 @@ target_metadata = None
 
 
 def get_url() -> str:
-    url = os.getenv("DATABASE_URL")
-    if url:
-        return url
-    user = os.getenv("POSTGRES_USER", "dingdong")
-    password = os.getenv("POSTGRES_PASSWORD", "dingdong")
-    host = os.getenv("POSTGRES_HOST", "localhost")
-    port = os.getenv("POSTGRES_PORT", "5432")
-    db = os.getenv("POSTGRES_DB", "dingdong")
-    return f"postgresql+psycopg://{user}:{password}@{host}:{port}/{db}"
+    return get_settings().sqlalchemy_database_url
 
 
 def run_migrations_offline() -> None:
