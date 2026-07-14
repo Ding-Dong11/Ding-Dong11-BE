@@ -19,3 +19,7 @@ def refresh_token_key(user_id: int) -> str:
 
 def access_blacklist_key(jti: str) -> str:
     return f"access_blacklist:{jti}"
+
+
+def chat_history_key(user_id: int) -> str:
+    return f"chat:history:{user_id}"
