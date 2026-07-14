@@ -1,6 +1,7 @@
 from app.models.base import Base
 from app.models.disposition import AdminDisposition, DispositionType
 from app.models.reward import PointTransaction, RewardVerification, Store, StoreQrCode
+from app.models.sale import SaleProduct, SaleStore, SaleStoreHour, SaleSubscription
 from app.models.user import User
 
 __all__ = [
@@ -12,4 +13,8 @@ __all__ = [
     "StoreQrCode",
     "RewardVerification",
     "PointTransaction",
+    "SaleStore",
+    "SaleStoreHour",
+    "SaleProduct",
+    "SaleSubscription",
 ]

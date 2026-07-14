@@ -105,6 +105,30 @@ class StoreQrNotFoundError(AppError):
     message = "해당 상가에 발급된 QR 코드가 없습니다."
 
 
+class SaleStoreNotFoundError(AppError):
+    status_code = 404
+    code = "SALE_STORE_NOT_FOUND"
+    message = "세일 상점 정보를 찾을 수 없습니다."
+
+
+class SaleProductNotFoundError(AppError):
+    status_code = 404
+    code = "SALE_PRODUCT_NOT_FOUND"
+    message = "세일 상품 정보를 찾을 수 없습니다."
+
+
+class SubscriptionAlreadyExistsError(AppError):
+    status_code = 409
+    code = "SUBSCRIPTION_ALREADY_EXISTS"
+    message = "이미 관심 등록된 상점입니다."
+
+
+class SubscriptionNotFoundError(AppError):
+    status_code = 404
+    code = "SUBSCRIPTION_NOT_FOUND"
+    message = "관심 등록된 상점이 아닙니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
