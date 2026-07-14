@@ -54,8 +54,8 @@ class ChatToolRepository:
             Store.latitude,
             text(
                 "ST_Distance(stores.geom::geography,"
-                " ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography)"
-            ).label("dist_m"),
+                " ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) AS dist_m"
+            ),
             qr_exists.label("has_active_qr"),
             disp_exists.label("has_disposition"),
             sale_exists.label("has_sale"),
@@ -191,8 +191,8 @@ class ChatToolRepository:
                 "  ST_SetSRID(ST_MakePoint(sale_stores.longitude::float,"
                 "   sale_stores.latitude::float), 4326)::geography,"
                 "  ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography"
-                ")"
-            ).label("dist_m"),
+                ") AS dist_m"
+            ),
         ).join(
             SaleStore, SaleProduct.sale_store_id == SaleStore.sale_store_id
         ).where(
@@ -350,8 +350,8 @@ class ChatToolRepository:
                 Store.jibun_address,
                 text(
                     "ST_Distance(stores.geom::geography,"
-                    " ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography)"
-                ).label("dist_m"),
+                    " ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) AS dist_m"
+                ),
                 visit_count,
             )
             .outerjoin(RewardVerification, RewardVerification.store_id == Store.store_id)
