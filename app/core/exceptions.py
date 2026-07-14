@@ -147,6 +147,12 @@ class InsufficientPointError(AppError):
     message = "포인트가 부족합니다."
 
 
+class UserCouponNotFoundError(AppError):
+    status_code = 404
+    code = "USER_COUPON_NOT_FOUND"
+    message = "보유한 쿠폰을 찾을 수 없습니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
