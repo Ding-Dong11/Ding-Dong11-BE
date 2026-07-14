@@ -39,7 +39,9 @@ def send_message(
     대화 이력은 Redis에 최대 20개 메시지 / 24시간 TTL로 보관된다.
     """
     def event_stream():
-        for chunk in service.stream_message(current_user.user_id, body.content):
+        for chunk in service.stream_message(
+            current_user.user_id, body.content, lat=body.lat, lon=body.lon
+        ):
             yield f"data: {chunk}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")

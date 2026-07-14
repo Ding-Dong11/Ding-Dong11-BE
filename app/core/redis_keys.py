@@ -23,3 +23,7 @@ def access_blacklist_key(jti: str) -> str:
 
 def chat_history_key(user_id: int) -> str:
     return f"chat:history:{user_id}"
+
+
+def chat_location_key(user_id: int) -> str:
+    return f"chat:location:{user_id}"

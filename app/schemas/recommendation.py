@@ -17,6 +17,7 @@ class RecommendationItem(BaseModel):
     longitude: Decimal
     latitude: Decimal
     small_code: str | None
+    image_url: str | None
 
     model_config = {"from_attributes": True}
 

@@ -7,6 +7,8 @@ class ChatMessageRequest(BaseModel):
     """FUNC-005: 채팅 메시지 전송 요청."""
 
     content: str = Field(min_length=1, max_length=2000)
+    lat: float | None = None  # 현재 위치 위도 (생략 시 Redis 캐시 재사용)
+    lon: float | None = None  # 현재 위치 경도
 
 
 class ChatHistoryMessage(BaseModel):
