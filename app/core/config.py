@@ -11,6 +11,14 @@ class Settings(BaseSettings):
     app_port: int = 8000
     log_level: str = "INFO"
 
+    # CORS — 쉼표로 구분된 허용 origin 목록 (예: http://localhost:5173,https://xxx.trycloudflare.com)
+    # pydantic-settings 2.x 는 list[str] 필드를 JSON으로 먼저 파싱해 쉼표 구분이 깨지므로 str로 받아 property에서 분리
+    cors_origins: str = "http://localhost:5173"
+
+    @property
+    def cors_origins_list(self) -> list[str]:
+        return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
     # PostgreSQL
     postgres_user: str = "dingdong"
     postgres_password: str = "dingdong"

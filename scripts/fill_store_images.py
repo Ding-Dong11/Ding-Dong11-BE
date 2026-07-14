@@ -54,24 +54,20 @@ _OG_IMAGE_RE2 = re.compile(
 def _search_kakao_place(
     client: httpx.Client, api_key: str, store_name: str, lon: float, lat: float
 ) -> str | None:
-    """카카오 키워드 검색으로 place_id 반환. 결과 없으면 None."""
-    try:
-        resp = client.get(
-            _KAKAO_KEYWORD_URL,
-            params={
-                "query": store_name,
-                "x": str(lon),
-                "y": str(lat),
-                "radius": 100,  # 100m 이내 우선 탐색
-                "size": 1,
-            },
-            headers={"Authorization": f"KakaoAK {api_key}"},
-            timeout=10,
-        )
-        resp.raise_for_status()
-    except httpx.HTTPError as e:
-        log.warning("카카오 검색 HTTP 오류 [%s]: %s", store_name, e)
-        return None
+    """카카오 키워드 검색으로 place_id 반환. 결과 없으면 None. HTTP 오류는 호출자로 전파."""
+    resp = client.get(
+        _KAKAO_KEYWORD_URL,
+        params={
+            "query": store_name,
+            "x": str(lon),
+            "y": str(lat),
+            "radius": 100,  # 100m 이내 우선 탐색
+            "size": 1,
+        },
+        headers={"Authorization": f"KakaoAK {api_key}"},
+        timeout=10,
+    )
+    resp.raise_for_status()
 
     docs = resp.json().get("documents", [])
     if not docs:
@@ -185,8 +181,23 @@ def main() -> None:
     updated = 0
     not_found = 0
     errors = 0
+    _BATCH_SIZE = 50  # 몇 건마다 DB commit
 
-    with httpx.Client() as client, engine.begin() as conn:
+    pending: list[tuple[int, str]] = []  # (store_id, image_url)
+
+    def _flush(conn_ctx) -> None:
+        """pending 목록을 DB에 커밋하고 비운다."""
+        if not pending or args.dry_run:
+            pending.clear()
+            return
+        for sid, url in pending:
+            conn_ctx.execute(
+                update(Store).where(Store.store_id == sid).values(image_url=url)
+            )
+        conn_ctx.commit()
+        pending.clear()
+
+    with httpx.Client() as client, engine.connect() as conn:
         for i, row in enumerate(rows, 1):
             store_id = row["store_id"]
             store_name = row["store_name"]
@@ -194,10 +205,17 @@ def main() -> None:
             lat = float(row["latitude"])
 
             if i % 50 == 0:
-                log.info("[%d/%d] 처리 중... (업데이트: %d, 미발견: %d)", i, total, updated, not_found)
+                log.info("[%d/%d] 처리 중... (업데이트: %d, 미발견: %d, 오류: %d)", i, total, updated, not_found, errors)
 
-            # 1) 카카오 키워드 검색
-            place_id = _search_kakao_place(client, api_key, store_name, lon, lat)
+            try:
+                # 1) 카카오 키워드 검색
+                place_id = _search_kakao_place(client, api_key, store_name, lon, lat)
+            except httpx.HTTPError as e:
+                log.warning("카카오 검색 HTTP 오류 [%s]: %s", store_name, e)
+                errors += 1
+                time.sleep(args.delay)
+                continue
+
             if not place_id:
                 log.debug("장소 미발견: %s (store_id=%d)", store_name, store_id)
                 not_found += 1
@@ -213,16 +231,17 @@ def main() -> None:
                 continue
 
             log.debug("이미지 획득: %s → %s", store_name, image_url[:80])
-
-            # 3) DB 업데이트
-            if not args.dry_run:
-                conn.execute(
-                    update(Store)
-                    .where(Store.store_id == store_id)
-                    .values(image_url=image_url)
-                )
+            pending.append((store_id, image_url))
             updated += 1
+
+            # _BATCH_SIZE 마다 커밋
+            if len(pending) >= _BATCH_SIZE:
+                _flush(conn)
+
             time.sleep(args.delay)
+
+        # 남은 건 최종 커밋
+        _flush(conn)
 
     log.info(
         "완료 — 업데이트: %d, 이미지 없음/미발견: %d, 오류: %d (전체 %d 건)",

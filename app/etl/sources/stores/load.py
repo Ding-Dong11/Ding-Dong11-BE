@@ -15,6 +15,7 @@ from app.etl.schema import (
     standard_industry,
     stores,
 )
+from app.etl.sources.stores.excluded_industries import is_excluded
 from app.etl.sources.stores.transform import LookupRows, StoreRow
 
 
@@ -142,6 +143,10 @@ def upsert_lookups(engine: Engine, lookups: LookupRows) -> None:
 
 
 def upsert_stores(engine: Engine, rows: list[StoreRow]) -> LoadResult:
+    if not rows:
+        return LoadResult()
+
+    rows = [r for r in rows if not is_excluded(r.industry_code)]
     if not rows:
         return LoadResult()
 
