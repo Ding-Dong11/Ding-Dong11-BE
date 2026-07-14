@@ -11,7 +11,6 @@ from app.models.user import User
 from app.schemas.sale import (
     FeedResponse,
     SaleProductDetail,
-    SaleStoreDetail,
     SaleStoreMarker,
     SubscribeResponse,
 )
@@ -104,20 +103,7 @@ def get_store_markers(
     )
 
 
-# ── FUNC-004-03: 상점 상세 / 상품 상세 ─────────────────────────────────────
-
-@router.get("/stores/{sale_store_id}", response_model=SaleStoreDetail)
-def get_store_detail(
-    sale_store_id: int,
-    service: SaleService = Depends(get_sale_service),
-) -> SaleStoreDetail:
-    """FUNC-004-03: 세일 상점 상세.
-
-    영업시간과 현재 판매 중인 상품 목록을 함께 반환한다.
-    마감됐거나 재고가 0인 상품은 제외된다.
-    """
-    return service.get_store_detail(sale_store_id)
-
+# ── FUNC-004-03: 상품 상세 ─────────────────────────────────────────────────
 
 @router.get("/products/{sale_product_id}", response_model=SaleProductDetail)
 def get_product_detail(

@@ -9,6 +9,7 @@ class PointResponse(BaseModel):
     """FUNC-008-01: 보유 포인트 정보."""
 
     user_id: int
+    email: str
     point_balance: int
 
     model_config = {"from_attributes": True}

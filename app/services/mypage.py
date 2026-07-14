@@ -16,7 +16,11 @@ class MyPageService:
     # ── FUNC-008-01: 보유 포인트 조회 ────────────────────────────────────────────
 
     def get_point(self, user: User) -> PointResponse:
-        return PointResponse(user_id=user.user_id, point_balance=user.point_balance)
+        return PointResponse(
+            user_id=user.user_id,
+            email=user.email,
+            point_balance=user.point_balance,
+        )
 
     # ── FUNC-008-02: 보유 쿠폰 보관함 ───────────────────────────────────────────
 

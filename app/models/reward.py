@@ -45,6 +45,7 @@ class Store(Base):
     jibun_address: Mapped[str | None] = mapped_column(String(300), nullable=True)
     longitude: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
     latitude: Mapped[Decimal] = mapped_column(Numeric(10, 7), nullable=False)
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
 
 class StoreQrCode(Base):

@@ -89,6 +89,7 @@ class SaleProduct(Base):
     original_price: Mapped[int] = mapped_column(Integer, nullable=False)
     sale_price: Mapped[int] = mapped_column(Integer, nullable=False)
     stock_quantity: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    image_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
     sale_deadline: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, server_default="ON_SALE")
     created_at: Mapped[datetime] = mapped_column(

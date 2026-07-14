@@ -57,10 +57,3 @@ def get_history(
     )
 
 
-@router.delete("/history", status_code=204)
-def clear_history(
-    current_user: User = Depends(get_current_user),
-    service: ChatService = Depends(get_chat_service),
-) -> None:
-    """FUNC-005: 대화 이력 초기화."""
-    service.clear_history(current_user.user_id)
