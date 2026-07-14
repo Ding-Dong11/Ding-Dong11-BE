@@ -11,6 +11,13 @@ class ChatMessageRequest(BaseModel):
     lon: float | None = None  # 현재 위치 경도
 
 
+class ChatInitRequest(BaseModel):
+    """FUNC-005: 채팅 초기화 요청 — 위치 기반 프로액티브 추천."""
+
+    lat: float
+    lon: float
+
+
 class ChatHistoryMessage(BaseModel):
     """대화 이력 단건."""
 

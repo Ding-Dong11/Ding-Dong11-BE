@@ -10,7 +10,7 @@ from app.core.database import get_session
 from app.core.deps import get_current_user
 from app.core.redis import get_redis
 from app.models.user import User
-from app.schemas.chat import ChatHistoryMessage, ChatHistoryResponse, ChatMessageRequest
+from app.schemas.chat import ChatHistoryMessage, ChatHistoryResponse, ChatInitRequest, ChatMessageRequest
 from app.services.chat import ChatService
 
 router = APIRouter(prefix="/chat", tags=["chat"])
@@ -22,6 +22,28 @@ def get_chat_service(
     db: Session = Depends(get_session),
 ) -> ChatService:
     return ChatService(redis=redis, settings=settings, db=db)
+
+
+@router.post("/init")
+def init_chat(
+    body: ChatInitRequest,
+    current_user: User = Depends(get_current_user),
+    service: ChatService = Depends(get_chat_service),
+) -> StreamingResponse:
+    """FUNC-005: 채팅 초기화 — 브라우저 위치 기반 주변 상가 & 맞춤 추천을 SSE 스트림으로 반환.
+
+    채팅 화면 진입 시 호출. 기존 대화 이력을 초기화하고 nearby_stores·my_recommendations
+    도구를 자동 호출한 뒤 환영 메시지를 스트리밍한다.
+
+    응답 형식 (text/event-stream):
+      data: {"text": "...", "done": false}
+      data: {"text": "", "done": true}
+    """
+    def event_stream():
+        for chunk in service.stream_init(current_user.user_id, body.lat, body.lon):
+            yield f"data: {chunk}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.post("/message")

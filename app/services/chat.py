@@ -17,6 +17,15 @@ _HISTORY_TTL = 86400     # 24h
 _LOCATION_TTL = 3600     # 1h
 _MAX_TOOL_ROUNDS = 5
 
+# 채팅 초기화 시 Claude에게 전달하는 내부 트리거 (사용자에게 노출 안 됨)
+_INIT_TRIGGER = (
+    "nearby_stores 도구와 my_recommendations 도구를 한 번의 응답에서 모두 호출해서 "
+    "주변 상가와 나의 방문 이력 기반 맞춤 추천을 가져오세요. "
+    "결과를 토대로 반갑게 인사하며 추천을 자연스럽게 소개해 주세요."
+)
+# 히스토리에 저장할 때 트리거를 구분하기 위한 내부 역할 마커
+_ROLE_INIT = "_init_user"
+
 _BASE_SYSTEM_PROMPT = """당신은 Ding-Dong 앱의 AI 어시스턴트입니다. 항상 한국어로 답변하세요.
 
 Ding-Dong 앱 주요 기능:
@@ -180,8 +189,19 @@ class ChatService:
     # ── 이력 관리 ─────────────────────────────────────────────────────────────
 
     def get_history(self, user_id: int) -> list[dict]:
+        """대화 이력 반환 — 내부 트리거 메시지(_init_user)는 제외."""
         raw = self.redis.get(chat_history_key(user_id))
-        return json.loads(raw) if raw else []
+        history = json.loads(raw) if raw else []
+        return [m for m in history if m.get("role") != _ROLE_INIT]
+
+    def _raw_history(self, user_id: int) -> list[dict]:
+        """Anthropic API용 원본 이력 (트리거 포함, 역할 변환 적용)."""
+        raw = self.redis.get(chat_history_key(user_id))
+        history = json.loads(raw) if raw else []
+        return [
+            {"role": "user", "content": m["content"]} if m.get("role") == _ROLE_INIT else m
+            for m in history
+        ]
 
     def clear_history(self, user_id: int) -> None:
         self.redis.delete(chat_history_key(user_id))
@@ -306,7 +326,7 @@ class ChatService:
         """
         location = self._get_location(user_id, lat, lon)
         system_prompt = self._build_system_prompt(location)
-        history = self.get_history(user_id)
+        history = self._raw_history(user_id)
 
         working_messages: list[dict] = history[-_MAX_HISTORY:] + [
             {"role": "user", "content": content}
@@ -361,6 +381,79 @@ class ChatService:
         # Redis 히스토리: tool_use 중간 턴 제외, 사용자 텍스트 + 최종 답변만 저장
         self._save_history(user_id, history + [
             {"role": "user", "content": content},
+            {"role": "assistant", "content": final_text},
+        ])
+
+        yield json.dumps({"text": "", "done": True}, ensure_ascii=False)
+
+    # ── 채팅 초기화 (위치 기반 프로액티브 추천) ──────────────────────────────
+
+    def stream_init(
+        self,
+        user_id: int,
+        lat: float,
+        lon: float,
+    ) -> Generator[str, None, None]:
+        """채팅 세션 초기화 — nearby_stores + my_recommendations 도구를 강제 호출한 뒤
+        환영 메시지와 함께 맞춤 추천을 스트리밍.
+
+        내부 트리거(_INIT_TRIGGER)는 히스토리에 _init_user 역할로 저장되어
+        GET /chat/history 응답에는 노출되지 않는다.
+        """
+        self.clear_history(user_id)
+        location = self._get_location(user_id, lat, lon)
+        system_prompt = self._build_system_prompt(location)
+
+        working_messages: list[dict] = [{"role": "user", "content": _INIT_TRIGGER}]
+
+        client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
+        supports_thinking = "haiku" not in self.settings.anthropic_model.lower()
+        final_text = ""
+
+        for _round in range(_MAX_TOOL_ROUNDS):
+            round_buffer: list[str] = []
+
+            stream_kwargs: dict = dict(
+                model=self.settings.anthropic_model,
+                max_tokens=4096,
+                system=system_prompt,
+                messages=working_messages,
+                tools=_CHAT_TOOLS,
+            )
+            if supports_thinking:
+                stream_kwargs["thinking"] = {"type": "adaptive"}
+            # 첫 번째 라운드: 반드시 도구를 호출하도록 강제
+            if _round == 0:
+                stream_kwargs["tool_choice"] = {"type": "any"}
+
+            with client.messages.stream(**stream_kwargs) as stream:
+                for text_chunk in stream.text_stream:
+                    round_buffer.append(text_chunk)
+                final_msg = stream.get_final_message()
+
+            if final_msg.stop_reason != "tool_use":
+                for chunk in round_buffer:
+                    final_text += chunk
+                    yield json.dumps({"text": chunk, "done": False}, ensure_ascii=False)
+                break
+
+            serialized_content = _serialize_content(final_msg.content)
+            tool_results = []
+            for block in final_msg.content:
+                if block.type == "tool_use":
+                    tool_result = self._execute_tool(block.name, block.input, user_id, location)
+                    tool_results.append({
+                        "type": "tool_result",
+                        "tool_use_id": block.id,
+                        "content": tool_result,
+                    })
+
+            working_messages.append({"role": "assistant", "content": serialized_content})
+            working_messages.append({"role": "user", "content": tool_results})
+
+        # 트리거는 _init_user 역할로, 어시스턴트 응답만 실제 대화로 저장
+        self._save_history(user_id, [
+            {"role": _ROLE_INIT, "content": _INIT_TRIGGER},
             {"role": "assistant", "content": final_text},
         ])
 
