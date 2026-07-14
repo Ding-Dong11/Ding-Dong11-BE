@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from sqlalchemy import exists, func, select, text
+from sqlalchemy import exists, func, literal_column, select, text
 from sqlalchemy.orm import Session
 
 from app.models.disposition import AdminDisposition, DispositionType
@@ -52,10 +52,10 @@ class ChatToolRepository:
             Store.jibun_address,
             Store.longitude,
             Store.latitude,
-            text(
-                "ST_Distance(stores.geom::geography,"
-                " ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) AS dist_m"
-            ),
+            literal_column(
+                f"ST_Distance(stores.geom::geography,"
+                f" ST_SetSRID(ST_MakePoint({float(lon)}, {float(lat)}), 4326)::geography)"
+            ).label("dist_m"),
             qr_exists.label("has_active_qr"),
             disp_exists.label("has_disposition"),
             sale_exists.label("has_sale"),
@@ -186,13 +186,13 @@ class ChatToolRepository:
             SaleProduct.stock_quantity,
             SaleProduct.sale_deadline,
             SaleStore.name.label("store_name"),
-            text(
+            literal_column(
                 "ST_Distance("
                 "  ST_SetSRID(ST_MakePoint(sale_stores.longitude::float,"
-                "   sale_stores.latitude::float), 4326)::geography,"
-                "  ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography"
-                ") AS dist_m"
-            ),
+                "  sale_stores.latitude::float), 4326)::geography,"
+                f"  ST_SetSRID(ST_MakePoint({float(lon)}, {float(lat)}), 4326)::geography"
+                ")"
+            ).label("dist_m"),
         ).join(
             SaleStore, SaleProduct.sale_store_id == SaleStore.sale_store_id
         ).where(
@@ -348,10 +348,10 @@ class ChatToolRepository:
                 Store.store_name,
                 Store.road_address,
                 Store.jibun_address,
-                text(
-                    "ST_Distance(stores.geom::geography,"
-                    " ST_SetSRID(ST_MakePoint(:lon, :lat), 4326)::geography) AS dist_m"
-                ),
+                literal_column(
+                    f"ST_Distance(stores.geom::geography,"
+                    f" ST_SetSRID(ST_MakePoint({float(lon)}, {float(lat)}), 4326)::geography)"
+                ).label("dist_m"),
                 visit_count,
             )
             .outerjoin(RewardVerification, RewardVerification.store_id == Store.store_id)
