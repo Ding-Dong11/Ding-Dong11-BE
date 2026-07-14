@@ -1,4 +1,5 @@
 from app.models.base import Base
+from app.models.coupon import Coupon, UserCoupon
 from app.models.disposition import AdminDisposition, DispositionType
 from app.models.reward import PointTransaction, RewardVerification, Store, StoreQrCode
 from app.models.sale import SaleProduct, SaleStore, SaleStoreHour, SaleSubscription
@@ -17,4 +18,6 @@ __all__ = [
     "SaleStoreHour",
     "SaleProduct",
     "SaleSubscription",
+    "Coupon",
+    "UserCoupon",
 ]

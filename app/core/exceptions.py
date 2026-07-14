@@ -129,6 +129,24 @@ class SubscriptionNotFoundError(AppError):
     message = "관심 등록된 상점이 아닙니다."
 
 
+class CouponNotFoundError(AppError):
+    status_code = 404
+    code = "COUPON_NOT_FOUND"
+    message = "쿠폰 정보를 찾을 수 없습니다."
+
+
+class CouponInactiveError(AppError):
+    status_code = 400
+    code = "COUPON_INACTIVE"
+    message = "구매할 수 없는 쿠폰입니다."
+
+
+class InsufficientPointError(AppError):
+    status_code = 400
+    code = "INSUFFICIENT_POINT"
+    message = "포인트가 부족합니다."
+
+
 def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
