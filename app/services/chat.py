@@ -315,17 +315,22 @@ class ChatService:
         client = anthropic.Anthropic(api_key=self.settings.anthropic_api_key)
         final_text = ""
 
+        supports_thinking = "haiku" not in self.settings.anthropic_model.lower()
+
         for _round in range(_MAX_TOOL_ROUNDS):
             round_buffer: list[str] = []
 
-            with client.messages.stream(
+            stream_kwargs: dict = dict(
                 model=self.settings.anthropic_model,
                 max_tokens=4096,
                 system=system_prompt,
                 messages=working_messages,
                 tools=_CHAT_TOOLS,
-                thinking={"type": "adaptive"},
-            ) as stream:
+            )
+            if supports_thinking:
+                stream_kwargs["thinking"] = {"type": "adaptive"}
+
+            with client.messages.stream(**stream_kwargs) as stream:
                 # stop_reason 을 알기 전이므로 버퍼에만 수집
                 for text_chunk in stream.text_stream:
                     round_buffer.append(text_chunk)

@@ -7,22 +7,31 @@ from typing import Annotated, Literal, Union
 from pydantic import BaseModel, Field, computed_field
 
 
-# ── 마커 (클러스터 / 개별 상가 유니온) ──────────────────────────────────────
+# ── 마커 유니온 ──────────────────────────────────────────────────────────────
 
-class ClusterMarker(BaseModel):
-    """zoom < 14 구간에서 서버가 묶어 반환하는 클러스터 핀."""
+class AreaMarker(BaseModel):
+    """카카오맵 level 8+ 광역 뷰에서 서버가 ST_SnapToGrid 로 집계해 반환하는 영역 핀.
 
-    type: Literal["cluster"] = "cluster"
+    격자 셀 하나에 포함된 상가 수(count)와 해당 셀 중심 좌표를 제공한다.
+    클라이언트는 CustomOverlay 로 count 숫자 뱃지를 렌더링하고,
+    탭 시 map.setLevel(현재레벨 - 2) + panTo 로 줌인한다.
+    """
+
+    type: Literal["area"] = "area"
     longitude: float
     latitude: float
-    count: int              # 클러스터 내 상가 수
-    has_active_qr: bool     # 클러스터 내 1개 이상 QR 상가 존재
-    has_disposition: bool   # 클러스터 내 행정처분 상가 존재
-    has_sale: bool          # 클러스터 내 할인 상품 상가 존재
+    count: int
+    has_active_qr: bool     # 셀 내 QR 상가 1개 이상 존재
+    has_disposition: bool   # 셀 내 행정처분 상가 존재
+    has_sale: bool          # 셀 내 할인 상품 상가 존재
 
 
 class StoreMarker(BaseModel):
-    """GET /stores/markers — 개별 상가 핀 한 건 (zoom >= 14 또는 클러스터 크기 1)."""
+    """카카오맵 level 1–7 상세 뷰에서 반환하는 개별 상가 핀.
+
+    클라이언트는 Kakao MarkerClusterer 에 이 마커들을 그대로 넘겨
+    시각적 클러스터링을 위임한다.
+    """
 
     type: Literal["store"] = "store"
     store_id: int
@@ -36,7 +45,7 @@ class StoreMarker(BaseModel):
 
 # FastAPI response_model 에 사용할 discriminated union
 MarkerItem = Annotated[
-    Union[ClusterMarker, StoreMarker],
+    Union[AreaMarker, StoreMarker],
     Field(discriminator="type"),
 ]
 

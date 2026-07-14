@@ -7,7 +7,7 @@ from app.models.disposition import AdminDisposition, DispositionType
 from app.models.reward import Store, StoreQrCode
 from app.models.sale import SaleProduct, SaleStore
 from app.schemas.store import (
-    ClusterMarker,
+    AreaMarker,
     DispositionSummary,
     MarkerItem,
     SaleProductSummary,
@@ -78,27 +78,24 @@ class StoreRepository:
         rows = self.db.execute(stmt.order_by(Store.store_id).limit(capped)).mappings().all()
         return [StoreMarker(**row) for row in rows]
 
-    def list_markers_clustered(
+    def list_markers_area(
         self,
         *,
         min_lat: float | None = None,
         max_lat: float | None = None,
         min_lon: float | None = None,
         max_lon: float | None = None,
-        eps_deg: float,
-    ) -> list[MarkerItem]:
-        """PostGIS ST_ClusterDBSCAN 으로 서버사이드 클러스터링.
+        grid_deg: float,
+        limit: int = 500,
+    ) -> list[AreaMarker]:
+        """ST_SnapToGrid 로 격자 집계 → 카카오맵 level 8+ 광역 뷰용.
 
-        count == 1 인 클러스터는 StoreMarker, 2+ 는 ClusterMarker 로 반환.
-        bbox 조건은 geom 이 NULL 인 상가를 자동 제외한다.
+        각 격자 셀의 중심 좌표(ST_X/Y of snapped geom)와 상가 수를 반환.
+        geom 이 NULL 인 상가는 자동 제외된다.
         """
         sql = text("""
-            WITH store_flags AS (
+            WITH flagged AS (
                 SELECT
-                    s.store_id,
-                    s.store_name,
-                    s.longitude::float AS longitude,
-                    s.latitude::float  AS latitude,
                     s.geom,
                     EXISTS(
                         SELECT 1 FROM store_qr_codes q
@@ -120,33 +117,24 @@ class StoreRepository:
                   AND (:min_lon IS NULL OR s.longitude >= :min_lon)
                   AND (:max_lon IS NULL OR s.longitude <= :max_lon)
             ),
-            clustered AS (
-                SELECT *,
-                    ST_ClusterDBSCAN(geom, :eps, 1) OVER () AS cid
-                FROM store_flags
-            ),
-            grouped AS (
+            snapped AS (
                 SELECT
-                    cid,
-                    COUNT(*)::int                                  AS cnt,
-                    AVG(longitude)::float                          AS longitude,
-                    AVG(latitude)::float                           AS latitude,
-                    BOOL_OR(has_active_qr)                         AS has_active_qr,
-                    BOOL_OR(has_disposition)                       AS has_disposition,
-                    BOOL_OR(has_sale)                              AS has_sale,
-                    (ARRAY_AGG(store_id  ORDER BY store_id))[1]   AS store_id,
-                    (ARRAY_AGG(store_name ORDER BY store_id))[1]  AS store_name
-                FROM clustered
-                GROUP BY cid
+                    ST_SnapToGrid(geom, :grid_deg) AS cell,
+                    has_active_qr,
+                    has_disposition,
+                    has_sale
+                FROM flagged
             )
             SELECT
-                CASE WHEN cnt = 1 THEN 'store' ELSE 'cluster' END AS type,
-                cnt      AS count,
-                longitude, latitude,
-                has_active_qr, has_disposition, has_sale,
-                CASE WHEN cnt = 1 THEN store_id   ELSE NULL END AS store_id,
-                CASE WHEN cnt = 1 THEN store_name ELSE NULL END AS store_name
-            FROM grouped
+                ST_X(cell)::float   AS longitude,
+                ST_Y(cell)::float   AS latitude,
+                COUNT(*)::int       AS count,
+                BOOL_OR(has_active_qr)   AS has_active_qr,
+                BOOL_OR(has_disposition) AS has_disposition,
+                BOOL_OR(has_sale)        AS has_sale
+            FROM snapped
+            GROUP BY cell
+            LIMIT :limit
         """)
 
         rows = self.db.execute(sql, {
@@ -154,31 +142,21 @@ class StoreRepository:
             "max_lat": max_lat,
             "min_lon": min_lon,
             "max_lon": max_lon,
-            "eps": eps_deg,
+            "grid_deg": grid_deg,
+            "limit": limit,
         }).mappings().all()
 
-        result: list[MarkerItem] = []
-        for r in rows:
-            if r["type"] == "cluster":
-                result.append(ClusterMarker(
-                    longitude=r["longitude"],
-                    latitude=r["latitude"],
-                    count=r["count"],
-                    has_active_qr=r["has_active_qr"],
-                    has_disposition=r["has_disposition"],
-                    has_sale=r["has_sale"],
-                ))
-            else:
-                result.append(StoreMarker(
-                    store_id=r["store_id"],
-                    store_name=r["store_name"],
-                    longitude=r["longitude"],
-                    latitude=r["latitude"],
-                    has_active_qr=r["has_active_qr"],
-                    has_disposition=r["has_disposition"],
-                    has_sale=r["has_sale"],
-                ))
-        return result
+        return [
+            AreaMarker(
+                longitude=r["longitude"],
+                latitude=r["latitude"],
+                count=r["count"],
+                has_active_qr=r["has_active_qr"],
+                has_disposition=r["has_disposition"],
+                has_sale=r["has_sale"],
+            )
+            for r in rows
+        ]
 
     def get_by_id(self, store_id: int) -> Store | None:
         return self.db.get(Store, store_id)
