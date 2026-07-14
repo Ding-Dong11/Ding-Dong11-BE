@@ -71,6 +71,9 @@ class StoreRepository:
         rows = self.db.execute(stmt.order_by(Store.store_id).limit(capped)).mappings().all()
         return [StoreMarker(**row) for row in rows]
 
+    def get_by_id(self, store_id: int) -> Store | None:
+        return self.db.get(Store, store_id)
+
     def get_detail(self, store_id: int) -> StoreDetail | None:
         """마커 팝업 상세 — FUNC-003-02 팝업."""
         store = self.db.get(Store, store_id)
