@@ -46,6 +46,7 @@ def _to_product_card(product: SaleProduct, store_name: str) -> SaleProductCard:
             product.status, product.stock_quantity, product.sale_deadline
         ),
         small_code=product.small_code,
+        image_url=product.image_url,
     )
 
 
@@ -181,4 +182,5 @@ class SaleService:
                 product.status, product.stock_quantity, product.sale_deadline
             ),
             small_code=product.small_code,
+            image_url=product.image_url,
         )

@@ -36,6 +36,7 @@ class SaleProductCard(BaseModel):
     sale_deadline: datetime
     effective_status: str
     small_code: str | None
+    image_url: str | None
 
 
 class FeedResponse(BaseModel):
@@ -104,3 +105,4 @@ class SaleProductDetail(BaseModel):
     sale_deadline: datetime
     effective_status: str
     small_code: str | None
+    image_url: str | None
