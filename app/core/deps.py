@@ -53,3 +53,16 @@ def get_current_auth_context(
 
 def get_current_user(ctx: AuthContext = Depends(get_current_auth_context)) -> User:
     return ctx.user
+
+
+def get_optional_user(
+    request: Request,
+    db: Session = Depends(get_session),
+    redis: Redis = Depends(get_redis),
+) -> User | None:
+    """비로그인 허용 의존성. 토큰이 없거나 유효하지 않으면 None 반환."""
+    try:
+        ctx = get_current_auth_context(request, db, redis)
+        return ctx.user
+    except Exception:
+        return None

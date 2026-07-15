@@ -1,19 +1,24 @@
 from __future__ import annotations
 
+from redis import Redis
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import (
     AlreadyVerifiedTodayError,
     QrNotFoundError,
 )
+from app.core.redis_keys import store_cooldown_key
 from app.models.user import User
 from app.repositories.reward import RewardRepository
 from app.schemas.reward import QrVerifyResponse
 
+_COOLDOWN_SECONDS = 7 * 24 * 3600  # 7일
+
 
 class RewardService:
-    def __init__(self, db: Session):
+    def __init__(self, db: Session, redis: Redis):
         self.db = db
+        self.redis = redis
         self.reward_repo = RewardRepository(db)
 
     def verify_qr(self, user: User, qr_token: str) -> QrVerifyResponse:
@@ -24,7 +29,7 @@ class RewardService:
 
         store = qr.store
 
-        if self.reward_repo.has_verified_today(user.user_id, store.store_id):
+        if self.redis.exists(store_cooldown_key(user.user_id, store.store_id)):
             raise AlreadyVerifiedTodayError()
 
         new_balance = user.point_balance + qr.reward_point
@@ -43,6 +48,8 @@ class RewardService:
         )
         user.point_balance = new_balance
         self.db.commit()
+
+        self.redis.setex(store_cooldown_key(user.user_id, store.store_id), _COOLDOWN_SECONDS, "1")
 
         return QrVerifyResponse(
             store_id=store.store_id,

@@ -108,5 +108,6 @@ class StoreDetail(BaseModel):
     latitude: Decimal
     image_url: str | None
     has_active_qr: bool
+    cooldown_days_left: int | None = None  # 로그인 시: 쿨다운 남은 일수(0=오늘 가능), 비로그인: None
     sale_products: list[SaleProductSummary]     # 활성 할인 상품 (없으면 빈 리스트)
     dispositions: list[DispositionSummary]      # 행정처분 이력 (없으면 빈 리스트)

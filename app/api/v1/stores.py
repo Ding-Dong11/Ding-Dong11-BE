@@ -3,9 +3,13 @@ from __future__ import annotations
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query
+from redis import Redis
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
+from app.core.deps import get_optional_user
+from app.core.redis import get_redis
+from app.models.user import User
 from app.schemas.store import MarkerItem, StoreDetail, StoreSearchResult
 from app.services.store import StoreService
 
@@ -67,9 +71,17 @@ def search_stores(
 def get_store_detail(
     store_id: int,
     db: Session = Depends(get_session),
+    redis: Redis = Depends(get_redis),
+    current_user: User | None = Depends(get_optional_user),
 ):
     """상가 마커 클릭 팝업 상세 (FUNC-003-02).
 
     type="store" 마커 클릭 시에만 호출. type="area" 탭엔 줌인 동작만 수행.
+    로그인 시 cooldown_days_left 포함 (0=적립 가능, 1~7=쿨다운 중 남은 일수).
+    비로그인 시 cooldown_days_left=null.
     """
-    return StoreService(db).get_detail(store_id)
+    return StoreService(db).get_detail(
+        store_id,
+        user_id=current_user.user_id if current_user else None,
+        redis=redis,
+    )

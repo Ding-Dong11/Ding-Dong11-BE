@@ -1,8 +1,12 @@
 from __future__ import annotations
 
+import math
+
+from redis import Redis
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import StoreNotFoundError
+from app.core.redis_keys import store_cooldown_key
 from app.repositories.store import StoreRepository
 from app.schemas.store import MarkerItem, StoreDetail, StoreSearchResult
 
@@ -65,8 +69,22 @@ class StoreService:
     def search(self, q: str, limit: int) -> list[StoreSearchResult]:
         return self.repo.search_stores(q=q, limit=limit)
 
-    def get_detail(self, store_id: int) -> StoreDetail:
+    def get_detail(
+        self,
+        store_id: int,
+        *,
+        user_id: int | None = None,
+        redis: Redis | None = None,
+    ) -> StoreDetail:
         detail = self.repo.get_detail(store_id)
         if detail is None:
             raise StoreNotFoundError()
+
+        cooldown_days_left: int | None = None
+        if user_id is not None and redis is not None:
+            ttl = redis.ttl(store_cooldown_key(user_id, store_id))
+            # ttl > 0: 쿨다운 중 / ttl <= 0: 쿨다운 없음(0=적립 가능)
+            cooldown_days_left = math.ceil(ttl / 86400) if ttl > 0 else 0
+
+        detail.cooldown_days_left = cooldown_days_left
         return detail

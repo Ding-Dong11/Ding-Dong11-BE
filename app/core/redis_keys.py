@@ -27,3 +27,8 @@ def chat_history_key(user_id: int) -> str:
 
 def chat_location_key(user_id: int) -> str:
     return f"chat:location:{user_id}"
+
+
+def store_cooldown_key(user_id: int, store_id: int) -> str:
+    """QR 포인트 재적립 쿨다운. TTL = 7일."""
+    return f"store_cooldown:{user_id}:{store_id}"
