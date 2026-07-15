@@ -82,6 +82,20 @@ class DispositionSummary(BaseModel):
 
 # ── 통합 상세 ────────────────────────────────────────────────────────────────
 
+class StoreSearchResult(BaseModel):
+    """GET /stores/search — 상가명·주소 전문검색 결과 한 건."""
+
+    store_id: int
+    store_name: str
+    branch_name: str | None
+    road_address: str | None
+    longitude: float
+    latitude: float
+    has_active_qr: bool
+    has_disposition: bool
+    has_sale: bool
+
+
 class StoreDetail(BaseModel):
     """GET /stores/{store_id} — 마커 클릭 팝업 전체 정보."""
 

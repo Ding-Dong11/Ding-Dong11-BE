@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
-from app.schemas.store import MarkerItem, StoreDetail
+from app.schemas.store import MarkerItem, StoreDetail, StoreSearchResult
 from app.services.store import StoreService
 
 router = APIRouter(prefix="/stores", tags=["stores"])
@@ -46,6 +46,21 @@ def get_store_markers(
         zoom=zoom,
         limit=limit,
     )
+
+
+@router.get("/search", response_model=list[StoreSearchResult])
+def search_stores(
+    q: Annotated[str, Query(min_length=1, max_length=100, description="상가명 또는 도로명주소 검색어")],
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    db: Session = Depends(get_session),
+):
+    """상가명·지점명·도로명주소 전문검색 (FUNC-003-01 검색바).
+
+    PostgreSQL tsvector + GIN 인덱스 기반 전문검색.
+    ts_rank 내림차순 — 관련도 높은 결과를 먼저 반환.
+    결과는 최대 50건, 기본 20건.
+    """
+    return StoreService(db).search(q=q, limit=limit)
 
 
 @router.get("/{store_id}", response_model=StoreDetail)

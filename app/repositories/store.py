@@ -13,6 +13,7 @@ from app.schemas.store import (
     SaleProductSummary,
     StoreDetail,
     StoreMarker,
+    StoreSearchResult,
 )
 
 _MARKER_LIMIT_MAX = 2000
@@ -157,6 +158,27 @@ class StoreRepository:
             )
             for r in rows
         ]
+
+    def search_stores(self, q: str, limit: int = 20) -> list[StoreSearchResult]:
+        """상가명·지점명·도로명주소 tsvector 전문검색 — GET /stores/search."""
+        stmt = (
+            select(
+                Store.store_id,
+                Store.store_name,
+                Store.branch_name,
+                Store.road_address,
+                Store.longitude,
+                Store.latitude,
+                _qr_exists(Store.store_id).label("has_active_qr"),
+                _disposition_exists(Store.store_id).label("has_disposition"),
+                _sale_exists(Store.store_id).label("has_sale"),
+            )
+            .where(text("stores.search_tsv @@ plainto_tsquery('simple', :q)"))
+            .order_by(text("ts_rank(stores.search_tsv, plainto_tsquery('simple', :q)) DESC"))
+            .limit(limit)
+        )
+        rows = self.db.execute(stmt, {"q": q}).mappings().all()
+        return [StoreSearchResult(**row) for row in rows]
 
     def get_by_id(self, store_id: int) -> Store | None:
         return self.db.get(Store, store_id)

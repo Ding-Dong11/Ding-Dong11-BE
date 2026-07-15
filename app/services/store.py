@@ -4,7 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.core.exceptions import StoreNotFoundError
 from app.repositories.store import StoreRepository
-from app.schemas.store import MarkerItem, StoreDetail
+from app.schemas.store import MarkerItem, StoreDetail, StoreSearchResult
 
 # 카카오맵 level 8 이상이면 광역 격자 집계, 7 이하면 개별 마커
 _AREA_ZOOM_THRESHOLD = 8
@@ -61,6 +61,9 @@ class StoreService:
             max_lon=max_lon,
             limit=limit,
         )
+
+    def search(self, q: str, limit: int) -> list[StoreSearchResult]:
+        return self.repo.search_stores(q=q, limit=limit)
 
     def get_detail(self, store_id: int) -> StoreDetail:
         detail = self.repo.get_detail(store_id)

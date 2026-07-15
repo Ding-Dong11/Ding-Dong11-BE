@@ -270,8 +270,9 @@ erDiagram
 
 ### 10. STORES — 상가/업소 (소상공인시장진흥공단) (FUNC-003-01, 006)
 - **기능**: 지도 pin 표시, 상가 상세, 리워드 QR 대상, 추천 산출 기준(업종/지역).
-- **인덱스**: PK(store_id) / `UNIQUE(store_number)` / FK(small_code, adong_code, bdong_code, industry_code) / **공간 인덱스**(아래 최적화 참조).
+- **인덱스**: PK(store_id) / `UNIQUE(store_number)` / FK(small_code, adong_code, bdong_code, industry_code) / **공간 인덱스**(아래 최적화 참조) / **전문검색 GIN 인덱스** `idx_stores_search` (아래 참조).
 - **제약**: longitude/latitude는 지도 대상 → 적재 시 NOT NULL 권장(결측 데이터는 적재 제외 또는 지오코딩 보정).
+- **전문검색**: `search_tsv` Generated 컬럼 — `to_tsvector('simple', store_name || branch_name || road_address)`. `GET /stores/search`에서 `plainto_tsquery('simple', q) + ts_rank` 정렬에 사용. 0016 마이그레이션에서 road_address 포함으로 재빌드됨.
 
 ### 11. ADMIN_DISPOSITIONS — 행정처분 (식약처) (FUNC-002)
 - **기능**: 처분 이력 매장 지도 마커, 마커 클릭 상세(업체명/처분내용/처분일자/근거법령/처분기관), 업종·처분종류 필터.
