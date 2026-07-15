@@ -31,11 +31,12 @@ def _discount_rate(original: int, sale: int) -> float:
     return round((original - sale) / original * 100, 1)
 
 
-def _to_product_card(product: SaleProduct, store_name: str) -> SaleProductCard:
+def _to_product_card(product: SaleProduct, store: SaleStore) -> SaleProductCard:
     return SaleProductCard(
         sale_product_id=product.sale_product_id,
         sale_store_id=product.sale_store_id,
-        store_name=store_name,
+        store_id=store.store_id,
+        store_name=store.name,
         name=product.name,
         original_price=product.original_price,
         sale_price=product.sale_price,
@@ -78,7 +79,7 @@ class SaleService:
             page=page,
             size=size,
         )
-        items = [_to_product_card(product, store.name) for product, store in rows]
+        items = [_to_product_card(product, store) for product, store in rows]
         return FeedResponse(
             items=items,
             total=total,
@@ -129,6 +130,7 @@ class SaleService:
         return [
             SaleStoreMarker(
                 sale_store_id=store.sale_store_id,
+                store_id=store.store_id,
                 name=store.name,
                 longitude=store.longitude,
                 latitude=store.latitude,
@@ -157,7 +159,7 @@ class SaleService:
             longitude=store.longitude,
             latitude=store.latitude,
             hours=[SaleStoreHourSchema.model_validate(h) for h in store.hours],
-            products=[_to_product_card(p, store.name) for p in active_products],
+            products=[_to_product_card(p, store) for p in active_products],
         )
 
     # ── FUNC-004-03: 상품 상세 ──────────────────────────────────────────────
@@ -171,6 +173,7 @@ class SaleService:
         return SaleProductDetail(
             sale_product_id=product.sale_product_id,
             sale_store_id=product.sale_store_id,
+            store_id=store.store_id,
             store_name=store.name,
             name=product.name,
             original_price=product.original_price,

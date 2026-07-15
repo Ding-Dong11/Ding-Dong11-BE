@@ -27,6 +27,7 @@ class SaleProductCard(BaseModel):
 
     sale_product_id: int
     sale_store_id: int
+    store_id: int | None
     store_name: str
     name: str
     original_price: int
@@ -62,6 +63,7 @@ class SaleStoreMarker(BaseModel):
     """FUNC-004-02: 세일 상점 지도 마커."""
 
     sale_store_id: int
+    store_id: int | None
     name: str
     longitude: Decimal
     latitude: Decimal
@@ -96,6 +98,7 @@ class SaleProductDetail(BaseModel):
 
     sale_product_id: int
     sale_store_id: int
+    store_id: int | None
     store_name: str
     name: str
     original_price: int
