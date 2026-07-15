@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_session
@@ -20,13 +22,18 @@ def get_coupon_service(db: Session = Depends(get_session)) -> CouponService:
 
 @router.get("", response_model=list[CouponItem])
 def list_coupons(
+    q: Annotated[str | None, Query(description="이름·설명 키워드 검색")] = None,
+    min_price: Annotated[int | None, Query(ge=0, description="최소 포인트 가격")] = None,
+    max_price: Annotated[int | None, Query(ge=0, description="최대 포인트 가격")] = None,
     service: CouponService = Depends(get_coupon_service),
 ) -> list[CouponItem]:
-    """FUNC-007-02: 구매 가능한 쿠폰 목록 조회.
+    """FUNC-007-02: 구매 가능한 쿠폰 목록 조회 (검색 포함).
 
-    is_active=true 인 쿠폰만 반환한다.
+    - q: 이름·설명 키워드 (부분 일치, 대소문자 무관)
+    - min_price / max_price: 포인트 가격 범위 필터
+    - is_active=true 인 쿠폰만 반환한다.
     """
-    return service.list_coupons()
+    return service.list_coupons(q=q, min_price=min_price, max_price=max_price)
 
 
 @router.get("/{coupon_id}", response_model=CouponDetail)

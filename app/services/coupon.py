@@ -19,8 +19,14 @@ class CouponService:
 
     # ── FUNC-007-02: 구매 가능 쿠폰 목록 ────────────────────────────────────────
 
-    def list_coupons(self) -> list[CouponItem]:
-        coupons = self.coupon_repo.list_active()
+    def list_coupons(
+        self,
+        *,
+        q: str | None = None,
+        min_price: int | None = None,
+        max_price: int | None = None,
+    ) -> list[CouponItem]:
+        coupons = self.coupon_repo.list_active(q=q, min_price=min_price, max_price=max_price)
         return [CouponItem.model_validate(c) for c in coupons]
 
     def get_coupon_detail(self, coupon_id: int) -> CouponDetail:

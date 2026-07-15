@@ -14,10 +14,25 @@ class CouponRepository:
 
     # ── FUNC-007-02: 쿠폰 목록 ─────────────────────────────────────────────────
 
-    def list_active(self) -> list[Coupon]:
-        """활성 상태인 구매 가능 쿠폰 전체 조회."""
-        stmt = select(Coupon).where(Coupon.is_active.is_(True)).order_by(Coupon.coupon_id)
-        return list(self.db.scalars(stmt))
+    def list_active(
+        self,
+        *,
+        q: str | None = None,
+        min_price: int | None = None,
+        max_price: int | None = None,
+    ) -> list[Coupon]:
+        """활성 쿠폰 조회. q=이름/설명 키워드, min/max_price=포인트 범위 필터."""
+        stmt = select(Coupon).where(Coupon.is_active.is_(True))
+        if q:
+            pattern = f"%{q}%"
+            stmt = stmt.where(
+                Coupon.name.ilike(pattern) | Coupon.description.ilike(pattern)
+            )
+        if min_price is not None:
+            stmt = stmt.where(Coupon.point_price >= min_price)
+        if max_price is not None:
+            stmt = stmt.where(Coupon.point_price <= max_price)
+        return list(self.db.scalars(stmt.order_by(Coupon.coupon_id)))
 
     def get_by_id(self, coupon_id: int) -> Coupon | None:
         return self.db.get(Coupon, coupon_id)
